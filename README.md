@@ -6,7 +6,4 @@ Introduce los movimientos que quieres hacer con la nomenclatura:
 Posicion inicial    Posicion final
 
 Ejemplos:
-e2 e4
-e7 e5
-f1c4
-h7h6
+e2 e4, e2e4, e 2 e 4
