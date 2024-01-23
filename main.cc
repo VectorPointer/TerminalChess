@@ -24,44 +24,39 @@ int abs(int a) {
     return a;
 }
 
+bool entreLimites(int i, int j) {
+    if (i < 8 and j < 8 and i >= 0 and j >= 0) return true;
+    return false;
+}
+
 VVP crearTablero() {
     VVP Tablero(8, VP(8, {' ', -1, false}));
 
     // Colores
-    for (int i = 0; i < 2; ++i) {
-        for (int j = 0; j < 8; ++j) Tablero[i][j].color = 1;
-    }
-    
-    for (int i = 6; i < 8; ++i) {
-        for (int j = 0; j < 8; ++j) Tablero[i][j].color = 0;
-    }
+    for (int i = 0; i < 8; ++i) for (int j = 0; j < 2; ++j) Tablero[i][j].color = 1;
+    for (int i = 0; i < 8; ++i) for (int j = 6; j < 8; ++j) Tablero[i][j].color = 0;
     
     // P = Pawn
-    for (int i = 0; i < 8; ++i) {
-        Tablero[1][i].nombre = 'P';
-    }
-
-    for (int i = 0; i < 8; ++i) {
-        Tablero[6][i].nombre = 'P';
-    }
+    for (int i = 0; i < 8; ++i) Tablero[i][1].nombre = 'P';
+    for (int i = 0; i < 8; ++i) Tablero[i][6].nombre = 'P';
 
     // Piezas: R = Rook, N = Knight, B = Bishop, Q = Queen, K = King
     Tablero[0][0].nombre = 'R';
-    Tablero[0][1].nombre = 'N';
-    Tablero[0][2].nombre = 'B';
-    Tablero[0][3].nombre = 'Q';
-    Tablero[0][4].nombre = 'K';
-    Tablero[0][5].nombre = 'B';
-    Tablero[0][6].nombre = 'N';
-    Tablero[0][7].nombre = 'R';
-
+    Tablero[1][0].nombre = 'N';
+    Tablero[2][0].nombre = 'B';
+    Tablero[3][0].nombre = 'Q';
+    Tablero[4][0].nombre = 'K';
+    Tablero[5][0].nombre = 'B';
+    Tablero[6][0].nombre = 'N';
     Tablero[7][0].nombre = 'R';
-    Tablero[7][1].nombre = 'N';
-    Tablero[7][2].nombre = 'B';
-    Tablero[7][3].nombre = 'Q';
-    Tablero[7][4].nombre = 'K';
-    Tablero[7][5].nombre = 'B';
-    Tablero[7][6].nombre = 'N';
+
+    Tablero[0][7].nombre = 'R';
+    Tablero[1][7].nombre = 'N';
+    Tablero[2][7].nombre = 'B';
+    Tablero[3][7].nombre = 'Q';
+    Tablero[4][7].nombre = 'K';
+    Tablero[5][7].nombre = 'B';
+    Tablero[6][7].nombre = 'N';
     Tablero[7][7].nombre = 'R';
 
     return Tablero;
@@ -79,10 +74,10 @@ void imprimirTablero(const VVP& Tablero) {
             if ((i + j) % 2 == 0) cout << WHITE;
             else cout << BLACK;
 
-            if (Tablero[i][j].color == 1) cout << BLACK_PIECE;
-            else if (Tablero[i][j].color == 0) cout << WHITE_PIECE;
+            if (Tablero[j][i].color == 1) cout << BLACK_PIECE;
+            else if (Tablero[j][i].color == 0) cout << WHITE_PIECE;
             
-            cout << Tablero[i][j].nombre << RESET;
+            cout << Tablero[j][i].nombre << RESET;
         }
         cout << WHITE_TEXT << '|' << RESET << endl << "  ";
         for (int j = 0; j <= 16; ++j) {
@@ -95,234 +90,77 @@ void imprimirTablero(const VVP& Tablero) {
     cout << endl;
 }
 
-bool movCaballo(int pos_x, int pos_y, int pos_xi, int pos_yi) {
-    if (
-        (pos_y != pos_yi + 2 or pos_x != pos_xi + 1) and
-        (pos_y != pos_yi + 2 or pos_x != pos_xi - 1) and
-        (pos_y != pos_yi - 2 or pos_x != pos_xi + 1) and
-        (pos_y != pos_yi - 2 or pos_x != pos_xi - 1) and
-        (pos_y != pos_yi + 1 or pos_x != pos_xi + 2) and
-        (pos_y != pos_yi - 1 or pos_x != pos_xi + 2) and
-        (pos_y != pos_yi + 1 or pos_x != pos_xi - 2) and
-        (pos_y != pos_yi - 1 or pos_x != pos_xi - 2)) return false;
+// Comprueba si hay captura al paso
+bool enPassant(int i, int j, int x, int y, char pieza_prev, int aux_j, int aux_x, int aux_y) {
+    // Peon
+    if (pieza_prev != 'P') return false;
+    // Ultimo movimiento de 2 de distancia
+    if (abs(aux_y - aux_j) != 2) return false;
+    // Destino = ultimo movimiento
+    if (i != aux_x) return false;
+    // Come en diagonal
+    if (abs(x - i) != 1) return false;
+    if (abs(y - j) != 1) return false;
     return true;
 }
 
-bool movAlfil(const VVP& Tablero, int pos_x, int pos_y, int pos_xi, int pos_yi) {
-    int i = 1;
-    // Comprueba en que diagonal tiene que moverse
-    if (pos_xi < pos_x and pos_yi < pos_y) {
-        // Comprueba que no hay obstaculos (excepto en la casilla final)
-        while (i < 8 and pos_yi + i < 8 and pos_xi + i < 8 and 
-        (Tablero[pos_yi + i][pos_xi + i].nombre == ' ' or (pos_yi + i == pos_y and pos_xi + i == pos_x))) {
-            if (pos_yi + i == pos_y and pos_xi + i == pos_x) return true;
-            ++i;
-        }
+// Busca en vertical, horizontal y diagonales dependiendo de los valores de aux
+// Pre: aux puede valer 1, -1 o 0
+bool apunta(const VVP& Tablero, int i, int j, int color, int aux1, int aux2, char pieza) {
+    int k = 1;
+    while (entreLimites(i + k*aux1, j + k*aux2) and Tablero[i + k*aux1][j + k*aux2].color != color) {
+        if (Tablero[i + k*aux1][j + k*aux2].nombre == pieza) return true;
+        // Comprueba al mismo tiempo que no haya una reina
+        if (Tablero[i + k*aux1][j + k*aux2].nombre == 'Q') return true;
+        if (Tablero[i + k*aux1][j + k*aux2].nombre != ' ') break;
+        ++k;
     }
-    else if (pos_xi > pos_x and pos_yi < pos_y) {
-        while (i < 8 and pos_yi + i < 8 and pos_xi - i >= 0 and 
-        (Tablero[pos_yi + i][pos_xi - i].nombre == ' ' or (pos_yi + i == pos_y and pos_xi - i == pos_x))) {
-            if (pos_yi + i == pos_y and pos_xi - i == pos_x) return true;
-            ++i;
-        }
-    }
-    else if (pos_xi < pos_x and pos_yi > pos_y) {
-        while (i < 8 and pos_yi - i >= 0 and pos_xi + i < 8 and 
-        (Tablero[pos_yi - i][pos_xi + i].nombre == ' ' or (pos_yi - i == pos_y and pos_xi + i == pos_x))) {
-            if (pos_yi - i == pos_y and pos_xi + i == pos_x) return true;
-            ++i;
-        }
-    }
-    else if (pos_xi > pos_x and pos_yi > pos_y){
-        while (i < 8 and pos_yi - i >= 0 and pos_xi - i >= 0 and 
-        (Tablero[pos_yi - i][pos_xi - i].nombre == ' ' or (pos_yi - i == pos_y and pos_xi - i == pos_x))) {
-            if (pos_yi - i == pos_y and pos_xi - i == pos_x) return true;
-            ++i;
-        }
-    }
-    return false;
-}
-
-bool movTorre(const VVP& Tablero, int pos_x, int pos_y, int pos_xi, int pos_yi) {
-    int i = 1;
-    // Comprueba en que direccion tiene que moverse
-    if (pos_yi < pos_y) {
-        // Comprueba que no hay obstaculos (excepto en la casilla final)
-        while (i < 8 and pos_yi + i < 8 and 
-        (Tablero[pos_yi + i][pos_xi].nombre == ' ' or (pos_yi + i == pos_y and pos_xi == pos_x))) {
-            if (pos_yi + i == pos_y and pos_xi == pos_x) return true;
-            ++i;
-        }
-    }
-
-    else if (pos_yi > pos_y) {
-        while (i < 8 and pos_yi - i >= 0 and 
-        (Tablero[pos_yi - i][pos_xi].nombre == ' ' or (pos_yi - i == pos_y and pos_xi == pos_x))) {
-            if (pos_yi - i == pos_y and pos_xi == pos_x) return true;
-            ++i;
-        }
-    }
-
-    else if (pos_xi < pos_x) {
-        while (i < 8 and pos_xi + i < 8 and 
-        (Tablero[pos_yi][pos_xi + i].nombre == ' ' or (pos_yi == pos_y and pos_xi + i == pos_x))) {
-            if (pos_yi == pos_y and pos_xi + i == pos_x) return true;
-            ++i;
-        }
-    }
-
-    else if (pos_xi > pos_x){
-        while (i < 8 and pos_xi - i >= 0 and 
-        (Tablero[pos_yi][pos_xi - i].nombre == ' ' or (pos_yi == pos_y and pos_xi - i == pos_x))) {
-            if (pos_yi == pos_y and pos_xi - i == pos_x) return true;
-            ++i;
-        }
-    }
-    return false;
-}
-
-bool movRey(const VVP& Tablero, int pos_x, int pos_y, int pos_xi, int pos_yi) {
-    if (abs(pos_x - pos_xi) == 2 and not Tablero[pos_yi][pos_xi].movido) {
-        // Enroque corto
-        if (pos_x == 6 and not Tablero[pos_y][7].movido and 
-        Tablero[pos_y][5].nombre == ' ' and Tablero[pos_y][6].nombre == ' ') return true;
-        // Enroque largo
-        if (pos_x == 2 and not Tablero[pos_y][0].movido and Tablero[pos_y][1].nombre == ' ' and 
-        Tablero[pos_y][2].nombre == ' ' and Tablero[pos_y][3].nombre == ' ') return true;
-    }
-    if (pos_y == pos_yi and pos_x == pos_xi + 1) return true;
-    if (pos_y == pos_yi and pos_x == pos_xi - 1) return true;
-    if (pos_y == pos_yi + 1 and pos_x == pos_xi) return true;
-    if (pos_y == pos_yi - 1 and pos_x == pos_xi) return true;
-    if (pos_y == pos_yi + 1 and pos_x == pos_xi + 1) return true;
-    if (pos_y == pos_yi + 1 and pos_x == pos_xi - 1) return true;
-    if (pos_y == pos_yi - 1 and pos_x == pos_xi + 1) return true;
-    if (pos_y == pos_yi - 1 and pos_x == pos_xi - 1) return true;
-        
-    return false;
-}
-
-void moverPieza(VVP& Tablero, int pos_x, int pos_y, int pos_xi, int pos_yi, 
-char pieza_prev, int auxpos_yi, int auxpos_y, char corona) {
-    // Captura al paso
-    if (abs(pos_yi - pos_y) == 1 and abs(pos_x - pos_xi) == 1 and pieza_prev == 'P' and abs(auxpos_y - auxpos_yi) == 2) {
-        Tablero[auxpos_y][pos_x] = {' ', -1, false};
-    }
-
-    // Enroque corto
-    else if (pos_x == 6 and not Tablero[pos_y][7].movido and Tablero[pos_y][5].nombre == ' ' and 
-    Tablero[pos_y][6].nombre == ' ') {
-        Tablero[pos_y][5] = Tablero[pos_y][7];
-        Tablero[pos_y][7] = {' ', -1, false};
-    }
-
-    // Enroque largo
-    else if (pos_x == 2 and not Tablero[pos_y][0].movido and Tablero[pos_y][1].nombre == ' ' and 
-    Tablero[pos_y][2].nombre == ' ' and Tablero[pos_y][3].nombre == ' ') {
-        Tablero[pos_y][3] = Tablero[pos_y][0];
-        Tablero[pos_y][0] = {' ', -1, false};
-    }
-
-    // Movimiento estandar
-    Tablero[pos_y][pos_x] = Tablero[pos_yi][pos_xi];
-    Tablero[pos_y][pos_x].movido = true;
-    Tablero[pos_yi][pos_xi] = {' ', -1, false};
-
-    // Coronar peones
-    if (Tablero[pos_y][pos_x].nombre == 'P' and (pos_y == 0 or pos_y == 7)) {
-        Tablero[pos_y][pos_x].nombre = corona;
-    }
-}
-
-bool apuntaCaballo(const VVP& Tablero, int i, int j, int color) {
-    if (i + 2 < 8 and j + 1 < 8 and Tablero[i + 2][j + 1].nombre == 'N' and Tablero[i + 2][j + 1].color != color) return true;
-    if (i + 2 < 8 and j - 1 >= 0 and Tablero[i + 2][j - 1].nombre == 'N' and Tablero[i + 2][j - 1].color != color) return true;
-    if (i - 2 >= 0 and j + 1 < 8 and Tablero[i - 2][j + 1].nombre == 'N' and Tablero[i - 2][j + 1].color != color) return true;
-    if (i - 2 >= 0 and j - 1 >= 0 and Tablero[i - 2][j - 1].nombre == 'N' and Tablero[i - 2][j - 1].color != color) return true;
-    if (i + 1 < 8 and j + 2 < 8 and Tablero[i + 1][j + 2].nombre == 'N' and Tablero[i + 1][j + 2].color != color) return true;
-    if (i - 1 >= 0 and j + 2 < 8 and Tablero[i - 1][j + 2].nombre == 'N' and Tablero[i - 1][j + 2].color != color) return true;
-    if (i + 1 < 8 and j - 2 >= 0 and Tablero[i + 1][j - 2].nombre == 'N' and Tablero[i + 1][j - 2].color != color) return true;
-    if (i - 1 >= 0 and j - 2 >= 0 and Tablero[i - 1][j - 2].nombre == 'N' and Tablero[i - 1][j - 2].color != color) return true;
     return false;
 }
 
 // Comprueba que no haya ningun alfil apuntando a esa casilla
 bool apuntaAlfil(const VVP& Tablero, int i, int j, int color) {
-    int k = 1;
-    // Comprueba que este dentro de los limites, no haya obstaculos o esten atacando en diagonal
-    while (k < 8 and i + k < 8 and j + k < 8 and Tablero[i + k][j + k].color != color and
-    (Tablero[i + k][j + k].nombre == ' ' or Tablero[i + k][j + k].nombre == 'B' or Tablero[i + k][j + k].nombre == 'Q')) {
-        if (Tablero[i + k][j + k].nombre == 'B' or Tablero[i + k][j + k].nombre == 'Q') return true;
-        ++k;
-    }
-
-    k = 1;
-    while (k < 8 and i + k < 8 and j - k >= 0 and Tablero[i + k][j - k].color != color and
-    (Tablero[i + k][j - k].nombre == ' ' or Tablero[i + k][j - k].nombre == 'B' or Tablero[i + k][j - k].nombre == 'Q')) {
-        if (Tablero[i + k][j - k].nombre == 'B' or Tablero[i + k][j - k].nombre == 'Q') return true;
-        ++k;
-    }
-    
-    k = 1; 
-    while (k < 8 and i - k >= 0 and j + k < 8 and Tablero[i - k][j + k].color != color and
-    (Tablero[i - k][j + k].nombre == ' ' or Tablero[i - k][j + k].nombre == 'B' or Tablero[i - k][j + k].nombre == 'Q')) {
-        if (Tablero[i - k][j + k].nombre == 'B' or Tablero[i - k][j + k].nombre == 'Q') return true;
-        ++k;
-    }
-
-    k = 1; 
-    while (k < 8 and i - k >= 0 and j - k >= 0 and Tablero[i - k][j - k].color != color and
-    (Tablero[i - k][j - k].nombre == ' ' or Tablero[i - k][j - k].nombre == 'B' or Tablero[i - k][j - k].nombre == 'Q')) {
-        if (Tablero[i - k][j - k].nombre == 'B' or Tablero[i - k][j - k].nombre == 'Q') return true;
-        ++k;
-    }
+    if (apunta(Tablero, i, j, color, 1, 1, 'B')) return true;
+    if (apunta(Tablero, i, j, color, 1, -1, 'B')) return true;
+    if (apunta(Tablero, i, j, color, -1, 1, 'B')) return true;
+    if (apunta(Tablero, i, j, color, -1, -1, 'B')) return true;
     return false;
 }
 
-// Comprueba que no haya ninguna torre apuntado a esa casilla
+// Comprueba que no haya ninguna torre apuntando a esa casilla
 bool apuntaTorre(const VVP& Tablero, int i, int j, int color) {
-    int k = 1;
-    // Comprueba que este dentro de los limites, no haya obstaculos o esten atacando en horizontal o vertical
-    while (k < 8 and i + k < 8 and Tablero[i + k][j].color != color and
-    (Tablero[i + k][j].nombre == ' ' or Tablero[i + k][j].nombre == 'R' or Tablero[i + k][j].nombre == 'Q')) {
-        if (Tablero[i + k][j].nombre == 'R' or Tablero[i + k][j].nombre == 'Q') return true;
-        ++k;
-    }
-
-    k = 1;
-    while (k < 8 and i - k >= 0 and Tablero[i - k][j].color != color and
-    (Tablero[i - k][j].nombre == ' ' or Tablero[i - k][j].nombre == 'R' or Tablero[i - k][j].nombre == 'Q')) {
-        if (Tablero[i - k][j].nombre == 'R' or Tablero[i - k][j].nombre == 'Q') return true;
-        ++k;
-    }
-
-    k = 1;
-    while (k < 8 and j + k < 8 and Tablero[i][j + k].color != color and
-    (Tablero[i][j + k].nombre == ' ' or Tablero[i][j + k].nombre == 'R' or Tablero[i][j + k].nombre == 'Q')) {
-        if (Tablero[i][j + k].nombre == 'R' or Tablero[i][j + k].nombre == 'Q') return true;
-        ++k;
-    }
-
-    k = 1;
-    while (k < 8 and j - k >= 0 and Tablero[i][j - k].color != color and
-    (Tablero[i][j - k].nombre == ' ' or Tablero[i][j - k].nombre == 'R' or Tablero[i][j - k].nombre == 'Q')) {
-        if (Tablero[i][j - k].nombre == 'R' or Tablero[i][j - k].nombre == 'Q') return true;
-        ++k;
-    }
+    if (apunta(Tablero, i, j, color, 1, 0, 'T')) return true;
+    if (apunta(Tablero, i, j, color, -1, 0, 'T')) return true;
+    if (apunta(Tablero, i, j, color, 0, 1, 'T')) return true;
+    if (apunta(Tablero, i, j, color, 0, -1, 'T')) return true;
     return false;
 }
 
+// Comprueba que no haya ningun caballo apuntando a esa casilla
+bool apuntaCaballo(const VVP& Tablero, int i, int j, int color) {
+    if (entreLimites(i + 2, j + 1) and Tablero[i + 2][j + 1].nombre == 'N' and Tablero[i + 2][j + 1].color != color) return true;
+    if (entreLimites(i + 2, j - 1) and Tablero[i + 2][j - 1].nombre == 'N' and Tablero[i + 2][j - 1].color != color) return true;
+    if (entreLimites(i - 2, j + 1) and Tablero[i - 2][j + 1].nombre == 'N' and Tablero[i - 2][j + 1].color != color) return true;
+    if (entreLimites(i - 2, j - 1) and Tablero[i - 2][j - 1].nombre == 'N' and Tablero[i - 2][j - 1].color != color) return true;
+    if (entreLimites(i + 1, j + 2) and Tablero[i + 1][j + 2].nombre == 'N' and Tablero[i + 1][j + 2].color != color) return true;
+    if (entreLimites(i - 1, j + 2) and Tablero[i - 1][j + 2].nombre == 'N' and Tablero[i - 1][j + 2].color != color) return true;
+    if (entreLimites(i + 1, j - 2) and Tablero[i + 1][j - 2].nombre == 'N' and Tablero[i + 1][j - 2].color != color) return true;
+    if (entreLimites(i - 1, j - 2) and Tablero[i - 1][j - 2].nombre == 'N' and Tablero[i - 1][j - 2].color != color) return true;
+    return false;
+}
+
+// Comprueba que no haya ningun peon apuntando a esa casilla
 bool apuntaPeon(const VVP& Tablero, int i, int j, int color) {
     // Rey blanco
-    if (i - 1 >= 0 and color == 0 and (
-    (j + 1 < 8 and Tablero[i - 1][j + 1].color == 1 and Tablero[i - 1][j + 1].nombre == 'P') or 
-    (j - 1 >= 0 and Tablero[i - 1][j - 1].color == 1 and Tablero[i - 1][j - 1].nombre == 'P'))) return true;
+    if (color == 0 and (
+    (entreLimites(i - 1, j + 1) and Tablero[i - 1][j + 1].color == 1 and Tablero[i - 1][j + 1].nombre == 'P') or 
+    (entreLimites(i - 1, j - 1) and Tablero[i - 1][j - 1].color == 1 and Tablero[i - 1][j - 1].nombre == 'P'))) return true;
 
 
     // Rey negro
-    if (i + 1 < 8 and color == 1 and (
-    (j + 1 < 8 and Tablero[i + 1][j + 1].color == 0 and Tablero[i + 1][j + 1].nombre == 'P') or 
-    (j - 1 >= 0 and Tablero[i + 1][j - 1].color == 0 and Tablero[i + 1][j - 1].nombre == 'P'))) return true;
+    if (color == 1 and (
+    (entreLimites(i + 1, j + 1) and Tablero[i + 1][j + 1].color == 0 and Tablero[i + 1][j + 1].nombre == 'P') or 
+    (entreLimites(i + 1, j - 1) and Tablero[i + 1][j - 1].color == 0 and Tablero[i + 1][j - 1].nombre == 'P'))) return true;
     
     return false;
 }
@@ -336,14 +174,151 @@ bool atacado (const VVP& Tablero, int i, int j, int color) {
     return false;
 }
 
+// i = posicion x final, j = posicion y final, x = posicion x inicial, y = posicion y final
+// Pre: aux puede valer 1, -1 o 0
+bool mov(const VVP& Tablero, int i, int j, int x, int y, int aux1, int aux2) {
+    int k = 1;
+    while (entreLimites(x + k*aux1, y + k*aux2)) {
+        if (x + k*aux1 == i and y + k*aux2 == j) return true;
+        if (Tablero[x + k*aux1][y + k*aux2].nombre != ' ') return false;
+        ++k;
+    }
+    return false;
+}
+
+// Comprueba si se puede mover el alfil a esa casilla
+bool movAlfil(const VVP& Tablero, int i, int j, int x, int y) {
+    if (x < i and y < j and mov(Tablero, i, j, x, y, 1, 1)) return true;
+    if (x < i and y > j and mov(Tablero, i, j, x, y, 1, -1)) return true;
+    if (x > i and y < j and mov(Tablero, i, j, x, y, -1, 1)) return true;
+    if (x > i and y > j and mov(Tablero, i, j, x, y, -1, -1)) return true;
+    return false;
+}
+
+// Comprueba si se puede mover la torre a esa casilla
+bool movTorre(const VVP& Tablero, int i, int j, int x, int y) {
+    if (y < j and mov(Tablero, i, j, x, y, 0, 1)) return true;
+    if (y > j and mov(Tablero, i, j, x, y, 0, -1)) return true;
+    if (x < i and mov(Tablero, i, j, x, y, 1, 0)) return true;
+    if (x > i and mov(Tablero, i, j, x, y, -1, 0)) return true;
+    return false;
+}
+
+// Comprueba si se puede mover el caballo a esa casilla
+bool movCaballo(int i, int j, int x, int y) {
+    if (j == y + 2 and i == x + 1) return true;
+    if (j == y + 2 and i == x - 1) return true;
+    if (j == y - 2 and i == x + 1) return true;
+    if (j == y - 2 and i == x - 1) return true;
+    if (j == y + 1 and i == x + 2) return true;
+    if (j == y - 1 and i == x + 2) return true;
+    if (j == y + 1 and i == x - 2) return true;
+    if (j == y - 1 and i == x - 2) return true;
+    return false;
+}
+
+// Comprueba si se puede mover el peon a esa casilla
+bool movPeon(const VVP& Tablero, int i, int j, int x, int y, bool captura_al_paso) {
+    int color = Tablero[x][y].color;
+
+    // No avanzar mas de 2 casillas
+    if (abs(y - j) > 2) return false;
+
+    // No capturar a mas de 1 casilla de distancia
+    if (abs(x - i) > 1) return false;   
+
+    // No retroceder
+    if (color == 0 and y <= j) return false;
+    if (color == 1 and y >= j) return false;
+
+    // Avanzar
+    if (x == i) if (Tablero[i][j].nombre != ' ') return false;
+    
+    // Avanzar 2 casillas
+    if (abs(y - j) == 2) {
+        if (x != i) return false;
+        if (color == 0) {
+            if (y != 6) return false;
+            if (Tablero[i][j + 1].nombre != ' ') return false;
+        }
+        if (color == 1) {
+            if (y != 1) return false;
+            if (Tablero[i][j - 1].nombre != ' ') return false;
+        }
+    }
+    
+    // Capturar
+    if (abs(y - j) == 1 and abs(x - i) == 1) {
+        // Captura al paso
+        if (captura_al_paso) return true;
+        // Captura
+        if (Tablero[i][j].nombre == ' ') return false;
+    }
+    
+    return true;
+}
+
+// Comprueba si se puede mover el rey a esa casilla
+bool movRey(const VVP& Tablero, int i, int j, int x, int y) {
+    int color = Tablero[x][y].color;
+    if (abs(i - x) == 2 and j - y == 0 and not Tablero[x][y].movido and not atacado(Tablero, 4, j, color)) {
+        // Enroque corto
+        if (i == 6 and not Tablero[7][j].movido and Tablero[5][j].nombre == ' ' and Tablero[6][j].nombre == ' ' and
+        not atacado(Tablero, 5, j, color) and not atacado(Tablero, 6, j, color)) return true;
+        // Enroque largo
+        if (i == 2 and not Tablero[0][j].movido and Tablero[1][j].nombre == ' ' 
+        and Tablero[2][j].nombre == ' ' and Tablero[3][j].nombre == ' ' and 
+        not atacado(Tablero, 3, j, color) and not atacado(Tablero, 2, j, color)) return true;
+    }
+    if (i == x + 1 and j == y) return true;
+    if (i == x - 1 and j == y) return true;
+    if (i == x and j == y + 1) return true;
+    if (i == x and j == y - 1) return true;
+    if (i == x + 1 and j == y + 1) return true;
+    if (i == x - 1 and j == y + 1) return true;
+    if (i == x + 1 and j == y - 1) return true;
+    if (i == x - 1 and j == y - 1) return true;
+        
+    return false;
+}
+
+void moverPieza(VVP& Tablero, int i, int j, int x, int y, bool captura_al_paso, char corona) {
+    // Captura al paso
+    if (captura_al_paso) {
+        if (Tablero[x][y].color == 0) Tablero[i][j + 1] = {' ', -1, false};
+        if (Tablero[x][y].color == 1) Tablero[i][j - 1] = {' ', -1, false};
+    }
+
+    else if (Tablero[x][y].nombre == 'K' and abs(x - i) == 2) {
+        // Enroque corto
+        if (i == 6) {
+            Tablero[5][j] = Tablero[7][j];
+            Tablero[7][j] = {' ', -1, false};
+        }
+
+        // Enroque largo
+        else if (i == 2) {
+            Tablero[3][j] = Tablero[0][j];
+            Tablero[0][j] = {' ', -1, false};
+        }
+    }
+
+    // Movimiento estandar
+    Tablero[i][j] = Tablero[x][y];
+    Tablero[i][j].movido = true;
+    Tablero[x][y] = {' ', -1, false};
+
+    // Coronar peones
+    if (Tablero[i][j].nombre == 'P' and (j == 0 or j == 7)) Tablero[i][j].nombre = corona;
+}
+
 // Recrea el movimiento y comprueba que el rey no este en jaque
-bool jaque(VVP Tablero, int pos_x, int pos_y, int pos_xi, int pos_yi, int turno, char corona) {
-    moverPieza(Tablero, pos_x, pos_y, pos_xi, pos_yi, ' ', -1, -1, corona);
-    for (int i = 0; i < 8; ++i) {
-        for (int j = 0; j < 8; ++j) {
-            if (Tablero[i][j].nombre == 'K' and Tablero[i][j].color == turno) {
-                int color = Tablero[i][j].color;
-                if (atacado(Tablero, i, j, color)) return true;
+bool jaque(VVP Tablero, int i, int j, int x, int y, bool captura_al_paso, int turno, char corona) {
+    moverPieza(Tablero, i, j, x, y, captura_al_paso, corona);
+    for (int k = 0; k < 8; ++k) {
+        for (int l = 0; l < 8; ++l) {
+            if (Tablero[k][l].nombre == 'K' and Tablero[k][l].color == turno) {
+                if (atacado(Tablero, k, l, turno)) return true;
                 return false;
             }
         }
@@ -351,88 +326,53 @@ bool jaque(VVP Tablero, int pos_x, int pos_y, int pos_xi, int pos_yi, int turno,
     return false;
 }
 
-bool posicionValida(const VVP& Tablero, int pos_x, int pos_y, int pos_xi, int pos_yi, 
-char pieza_prev, int auxpos_yi, int auxpos_y, bool turno, char corona) {
+bool posicionValida(const VVP& Tablero, int i, int j, int x, int y, bool captura_al_paso, int turno, char corona) {
     // Fuera de los limites
-    if (pos_y < 0 or pos_y >= 8 or pos_x < 0 or pos_x >= 8) return false;
+    if (not entreLimites(i, j)) return false;
+
+    // Compueba que en la posicion inicial haya una pieza
+    if (Tablero[x][y].nombre == ' ') return false;
 
     // No comer mismo color
-    if (Tablero[pos_yi][pos_xi].color == Tablero[pos_y][pos_x].color) return false;
+    if (Tablero[x][y].color == Tablero[i][j].color) return false;
 
-    // Mover fuera de turno
-    if (Tablero[pos_yi][pos_xi].color != turno) return false;
+    // No mover fuera de turno
+    if (Tablero[x][y].color != turno) return false;
 
     // Peon
-    if (Tablero[pos_yi][pos_xi].nombre == 'P') {
-        // Avanzar
-        if (pos_yi <= pos_y and Tablero[pos_yi][pos_xi].color == 0) return false;   // Retroceder
-        if (pos_yi >= pos_y and Tablero[pos_yi][pos_xi].color == 1) return false;   // Retroceder
-
-        if (abs(pos_yi - pos_y) > 2) return false;   // Avanzar mas de 2 casillas
-        if (pos_xi == pos_x) {
-            // Avance de 2 casillas
-            for (int i = 0; i < abs(pos_y - pos_yi); ++i) {
-                if (Tablero[pos_y - i][pos_x].nombre != ' ') return false;
-            }
-        }
-        
-        // Capturar
-        if (abs(pos_y - pos_yi) == 1 and abs(pos_x - pos_xi) == 1) {
-            // Captura al paso
-            if (abs(pos_yi - pos_y) == 1 and abs(pos_x - pos_xi) == 1
-            and pieza_prev == 'P' and abs(auxpos_y - auxpos_yi) == 2) return true;
-
-            if (Tablero[pos_y][pos_x].nombre == ' ') return false;
-        }
-    }
-
+    if (Tablero[x][y].nombre == 'P' and not movPeon(Tablero, i, j, x, y, captura_al_paso)) return false;
+    
     // Caballo
-    else if (Tablero[pos_yi][pos_xi].nombre == 'N') {
-        if (not movCaballo(pos_x, pos_y, pos_xi, pos_yi)) return false;
-    }
+    else if (Tablero[x][y].nombre == 'N' and not movCaballo(i, j, x, y)) return false;
 
     // Alfil
-    else if (Tablero[pos_yi][pos_xi].nombre == 'B') {
-        // Mismo color de casilla
-        if ((pos_yi + pos_xi)%2 != (pos_y + pos_x)%2) return false;
-        
-        if(not movAlfil(Tablero, pos_x, pos_y, pos_xi, pos_yi)) return false;
-    }
+    else if (Tablero[x][y].nombre == 'B' and  not movAlfil(Tablero, i, j, x, y)) return false;
 
     // Torre
-    else if (Tablero[pos_yi][pos_xi].nombre == 'R') {
-        // Se mantiene la fila o la columna
-        if (pos_yi != pos_y and pos_xi != pos_x) return false;
-
-        if (not movTorre(Tablero, pos_x, pos_y, pos_xi, pos_yi)) return false;
-    }
+    else if (Tablero[x][y].nombre == 'R' and not movTorre(Tablero, i, j, x, y)) return false;
 
     // Reina
-    else if (Tablero[pos_yi][pos_xi].nombre == 'Q') {
-        if (not movAlfil(Tablero, pos_x, pos_y, pos_xi, pos_yi) and 
-        not movTorre(Tablero, pos_x, pos_y, pos_xi, pos_yi)) return false;
-    }
+    else if (Tablero[x][y].nombre == 'Q' and not movAlfil(Tablero, i, j, x, y) and not movTorre(Tablero, i, j, x, y)) return false;
 
     // Rey
-    else if (Tablero[pos_yi][pos_xi].nombre == 'K' and not movRey(Tablero, pos_x, pos_y, pos_xi, pos_yi)) return false;
+    else if (Tablero[x][y].nombre == 'K' and not movRey(Tablero, i, j, x, y)) return false;
 
     // No ignorar jaque
-    if (jaque(Tablero, pos_x, pos_y, pos_xi, pos_yi, turno, corona)) return false;
+    if (jaque(Tablero, i, j, x, y, captura_al_paso, turno, corona)) return false;
 
     return true;
 }
 
-bool existeMovimientoValido(const VVP& Tablero, int turno) {
-    for (int pos_y = 0; pos_y < 8; ++pos_y) {
-        for (int pos_x = 0; pos_x < 8; ++pos_x) {
-            if (Tablero[pos_y][pos_x].color == turno) {
-                for (int pos_yi = 0; pos_yi < 8; ++pos_yi) {
-                    for (int pos_xi = 0; pos_xi < 8; ++pos_xi) {
-                        char pieza_prev = Tablero[pos_yi][pos_xi].nombre;
-                        int auxpos_yi = pos_yi;
-                        int auxpos_y = pos_y;
-
-                        if (posicionValida(Tablero, pos_x, pos_y, pos_xi, pos_yi, pieza_prev, auxpos_yi, auxpos_y, turno, ' ')) return true;
+bool existeMovimientoValido(const VVP& Tablero, int turno, char pieza_prev, int aux_j, int aux_x, int aux_y) {
+    // Encuentra una pieza aliada
+    for (int x = 0; x < 8; ++x) {
+        for (int y = 0; y < 8; ++y) {
+            if (Tablero[x][y].color == turno) {
+                // Encuentra un movimento valido para la pieza
+                for (int i = 0; i < 8; ++i) {
+                    for (int j = 0; j < 8; ++j) {
+                        bool captura_al_paso = enPassant(i, j, x, y, pieza_prev, aux_j, aux_x, aux_y);
+                        if (posicionValida(Tablero, i, j, x, y, captura_al_paso, turno, ' ')) return true;
                     }
                 }
             }
@@ -441,7 +381,7 @@ bool existeMovimientoValido(const VVP& Tablero, int turno) {
     return false;
 }
 
-bool mate(const VVP& Tablero, int turno) {
+bool mate(const VVP& Tablero, int turno, char pieza_prev, int aux_j, int aux_x, int aux_y) {
     // Encuentra el rey
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
@@ -449,7 +389,7 @@ bool mate(const VVP& Tablero, int turno) {
                 // Comprueba si el rey esta en jaque
                 if (atacado(Tablero, i, j, turno)) {
                     // Comprueba si existe un movimiento valido para el jugador actual
-                    if (not existeMovimientoValido(Tablero, turno)) {
+                    if (not existeMovimientoValido(Tablero, turno, pieza_prev, aux_j, aux_x, aux_y)) {
                         return true;
                     }
                 }
@@ -472,45 +412,51 @@ char coronarPeones() {
     return corona;
 }
 
+
 int main() {
     VVP Tablero = crearTablero();
     imprimirTablero(Tablero);
-    
-    char posc_xi;
-    char posc_yi;
-    char posc_x;
-    char posc_y;
 
     int turno = 0;  // 0 = blancas, 1 = negras
 
     // Guarda la jugada anterior (para la captura al paso)
-    int auxpos_yi, auxpos_y;
-    auxpos_yi = auxpos_y = 0;
+    int auxpos_yi, auxpos_y, auxpos_xi;
+    auxpos_yi = auxpos_y = auxpos_xi = 0;
     char pieza_prev = ' ';
-    while (cin >> posc_xi >> posc_yi >> posc_x >> posc_y) {
-        int pos_xi = int(posc_xi - 'a');
-        int pos_x = int(posc_x - 'a');
-        int pos_yi = 8 - int(posc_yi - '0');
-        int pos_y = 8 - int(posc_y - '0');
 
-        // Introducir pieza a la que se quiere coronar
+    char cpos_xi, cpos_yi, cpos_x, cpos_y;
+    while (cin >> cpos_xi >> cpos_yi >> cpos_x >> cpos_y) {
+        // Convertir caracter a entero
+        int pos_xi = int(cpos_xi - 'a');
+        int pos_x = int(cpos_x - 'a');
+        int pos_yi = 8 - int(cpos_yi - '0');
+        int pos_y = 8 - int(cpos_y - '0');
+
         char corona = ' ';
-        if (Tablero[pos_yi][pos_xi].nombre == 'P' and (pos_y == 0 or pos_y == 7)) corona = coronarPeones();
+        bool captura_al_paso = false;
+        if (entreLimites(pos_x, pos_y)) {
+            // Introducir pieza a la que se quiere coronar
+            if ((pos_y == 0 or pos_y == 7) and 
+            Tablero[pos_xi][pos_yi].nombre == 'P' and movPeon(Tablero, pos_x, pos_y, pos_xi, pos_yi, false)) corona = coronarPeones();
 
-        if (posicionValida(Tablero, pos_x, pos_y, pos_xi, pos_yi, pieza_prev, auxpos_yi, auxpos_y, turno, corona)) {
-            moverPieza(Tablero, pos_x, pos_y, pos_xi, pos_yi, pieza_prev, auxpos_yi, auxpos_y, corona);
+            // Comprueba si hay captura al paso
+            if (enPassant(pos_x, pos_y, pos_xi, pos_yi, pieza_prev, auxpos_y, auxpos_xi, auxpos_yi)) captura_al_paso = true;
+        }
+        if (posicionValida(Tablero, pos_x, pos_y, pos_xi, pos_yi, captura_al_paso, turno, corona)) {
+            moverPieza(Tablero, pos_x, pos_y, pos_xi, pos_yi, captura_al_paso, corona);
             imprimirTablero(Tablero);
 
             // Cambia el turno
             turno = 1 - turno;
 
             // Actualiza la jugada anterior (para la captura al paso)
-            pieza_prev = Tablero[pos_y][pos_x].nombre;
+            pieza_prev = Tablero[pos_x][pos_y].nombre;
             auxpos_yi = pos_yi;
             auxpos_y = pos_y;
+            auxpos_xi = pos_xi;
 
             // Comprueba si hay mate
-            if (mate(Tablero, turno)) {
+            if (mate(Tablero, turno, pieza_prev, auxpos_y, auxpos_xi, auxpos_yi)) {
                 cout << "¡Jaque mate! ";
                 if (turno == 0) cout << "Las negras ganan." << endl;
                 else cout << "Las blancas ganan." << endl;
