@@ -1,14 +1,13 @@
 #include <iostream>
+#include <ncurses.h>
 #include <vector>
 using namespace std;
 
-// Definir codigos de escape ANSI para colores
-#define RESET   "\033[0m"
-#define BLACK   "\033[40m"  // Fondo negro
-#define WHITE   "\033[47m"  // Fondo blanco
-#define WHITE_TEXT "\033[1;37m" // Texto blanco para los elementos auxiliares
-#define BLACK_PIECE "\033[1;31m"  // Rojo brillante para las piezas negras
-#define WHITE_PIECE "\033[1;34m"  // Azul brillante para las piezas blancas
+// Definir pares de colores
+#define BLUE_WHITE_PAIR 1
+#define BLUE_BLACK_PAIR 2
+#define RED_WHITE_PAIR 3
+#define RED_BLACK_PAIR 4
 
 struct Pieza {
     char nombre;
@@ -62,33 +61,49 @@ VVP crearTablero() {
     return Tablero;
 }
 
+void initColors() {
+    start_color();
+    init_pair(BLUE_WHITE_PAIR, COLOR_BLUE, COLOR_WHITE);
+    init_pair(BLUE_BLACK_PAIR, COLOR_BLUE, COLOR_BLACK);
+    init_pair(RED_WHITE_PAIR, COLOR_RED, COLOR_WHITE);
+    init_pair(RED_BLACK_PAIR, COLOR_RED, COLOR_BLACK);
+}
+
 void imprimirTablero(const VVP& Tablero) {
-    cout << "  ";
-    for (int i = 0; i <= 16; ++i) cout << WHITE_TEXT << '-' << RESET;
-    cout << endl;
+    clear(); // Limpiar la pantalla
+
+    // Obtener el tamaño de la ventana
+    int height, width;
+    getmaxyx(stdscr, height, width);
+
+    // Calcular la posición inicial para centrar el tablero
+    int starty = (height - 8*2) / 2;
+    int startx = (width - 8*3) / 2;
 
     for (int i = 0; i < 8; ++i) {
-        cout << WHITE_TEXT << 8 - i << RESET << ' ';
+        mvprintw(starty + 2*i, startx - 3, " %d ", 8 - i);
         for (int j = 0; j < 8; ++j) {
-            cout << WHITE_TEXT << '|' << RESET;
-            if ((i + j) % 2 == 0) cout << WHITE;
-            else cout << BLACK;
+            if (Tablero[j][i].color == 0) {
+                if ((i + j)%2 == 0) attron(COLOR_PAIR(BLUE_WHITE_PAIR));
+                else attron(COLOR_PAIR(BLUE_BLACK_PAIR));
+            }
+            else {
+                if ((i + j)%2 == 0) attron(COLOR_PAIR(RED_WHITE_PAIR));
+                else attron(COLOR_PAIR(RED_BLACK_PAIR));
+            }
 
-            if (Tablero[j][i].color == 1) cout << BLACK_PIECE;
-            else if (Tablero[j][i].color == 0) cout << WHITE_PIECE;
-            
-            cout << Tablero[j][i].nombre << RESET;
+            mvprintw(starty + 2*i, startx + 3*j, " %c ", Tablero[j][i].nombre);
+
+            attroff(COLOR_PAIR(BLUE_WHITE_PAIR) | COLOR_PAIR(BLUE_BLACK_PAIR) | COLOR_PAIR(RED_WHITE_PAIR) | COLOR_PAIR(RED_BLACK_PAIR));
         }
-        cout << WHITE_TEXT << '|' << RESET << endl << "  ";
-        for (int j = 0; j <= 16; ++j) {
-            cout << WHITE_TEXT << '-' << RESET;
-        }
-        cout << endl;
+        for (int j = 0; j <= 8; ++j) mvprintw(starty + i*2, startx + j*3, "|");
     }
-    cout << "  ";
-    for (int i = 0; i < 8; ++i) cout << ' ' << WHITE_TEXT << char('A' + i) << RESET;
-    cout << endl;
+    for (int i = 0; i <= 8; ++i) for (int j = 0; j <= 24; ++j) mvprintw(starty - 1 + i*2, startx + j, "%c", '-');
+    for (int i = 0; i < 8; ++i) mvprintw(starty + 16, startx + i*3 + 2, "%c", 'A' + i);
+
+    refresh(); // Actualizar la pantalla    
 }
+
 
 // Comprueba si hay captura al paso
 bool enPassant(int i, int j, int x, int y, char pieza_prev, int aux_j, int aux_x, int aux_y) {
@@ -414,6 +429,9 @@ char coronarPeones() {
 
 
 int main() {
+    initscr(); // Inicializar la pantalla de NCurses
+    initColors();
+
     VVP Tablero = crearTablero();
     imprimirTablero(Tablero);
 
@@ -460,7 +478,7 @@ int main() {
                 cout << "¡Jaque mate! ";
                 if (turno == 0) cout << "Las negras ganan." << endl;
                 else cout << "Las blancas ganan." << endl;
-                break;
+                endwin(); // Finalizar NCurses
             }
         }
         else cout << "Posicion invalida" << endl;
