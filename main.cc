@@ -9,6 +9,7 @@ using namespace std;
 #define RED_WHITE_PAIR 3
 #define RED_BLACK_PAIR 4
 #define WHITE_BLACK_PAIR 5
+#define BLACK_GREEN_PAIR 6
 
 struct Pieza {
     char nombre;
@@ -18,6 +19,9 @@ struct Pieza {
 
 typedef vector<Pieza> VP;
 typedef vector<VP> VVP;
+
+typedef vector<bool> VB;
+typedef vector<VB> VVB;
 
 int abs(int a) {
     if (a < 0) return -a;
@@ -69,18 +73,11 @@ void initColors() {
     init_pair(RED_WHITE_PAIR, COLOR_RED, COLOR_WHITE);
     init_pair(RED_BLACK_PAIR, COLOR_RED, COLOR_BLACK);
     init_pair(WHITE_BLACK_PAIR, COLOR_WHITE, COLOR_BLACK);
+    init_pair(BLACK_GREEN_PAIR, COLOR_BLACK, COLOR_GREEN);
 }
 
-void imprimirTablero(const VVP& Tablero) {
+void imprimirTablero(const VVP& Tablero, int startx, int starty) {
     clear(); // Limpiar la pantalla
-
-    // Obtener el tamaño de la ventana
-    int height, width;
-    getmaxyx(stdscr, height, width);
-
-    // Calcular la posición inicial para centrar el tablero
-    int starty = (height - 8*2) / 2;
-    int startx = (width - 8*3) / 2;
 
     for (int i = 0; i < 8; ++i) {
         mvprintw(starty + 2*i, startx - 3, " %d ", 8 - i);
@@ -106,35 +103,52 @@ void imprimirTablero(const VVP& Tablero) {
     refresh(); // Actualizar la pantalla    
 }
 
-// Muestra un mensaje por 2 segundos y despues lo elimina
-void imprimirMensaje(string s, int startx, int starty) {
+// Muestra un mensaje por tiempo milisegundos y despues lo elimina
+void imprimirMensaje(string s, int tiempo) {
+    int height, width;
+    getmaxyx(stdscr, height, width);
+    int x = (width - s.length()) / 2;
+
     // Mostrar el mensaje
     attron(COLOR_PAIR(WHITE_BLACK_PAIR));
-    mvprintw(starty + 17, startx, "%s", s.c_str());
+    mvprintw(height - 1, x, s.c_str());
     attroff(COLOR_PAIR(WHITE_BLACK_PAIR));
     refresh();
 
     // Esperar a que el usuario presione una tecla o esperar 2 segundos
-    timeout(2000);  
+    timeout(tiempo);  
     getch();  
     timeout(-1);  // Desactivar el tiempo de espera
 
     // Borrar el mensaje
-    mvprintw(starty + 17, startx, string(s.size(), ' ').c_str());  
+    mvprintw(height - 1, x, string(s.size(), ' ').c_str());
     refresh(); 
 }
 
+char coronarPeones() {
+    // Coronar peones
+    char corona;
+    imprimirMensaje("Introduce la pieza a la que quieres coronar (Q, R, B, N): ", 4000);
+    cin >> corona;
+    while (corona != 'Q' and corona != 'R' and corona != 'B' and corona != 'N') {
+        imprimirMensaje("No puedes coronar el peon a esa pieza", 1000);
+        cin >> corona;
+    }
+    return corona;
+}
+
 // Comprueba si hay captura al paso
-bool enPassant(int i, int j, int x, int y, char pieza_prev, int aux_j, int aux_x, int aux_y) {
+bool enPassant(int i, int j, int x, int y, char pieza_prev, int aux_j, int aux_x, int aux_y, int color) {
     // Peon
     if (pieza_prev != 'P') return false;
     // Ultimo movimiento de 2 de distancia
     if (abs(aux_y - aux_j) != 2) return false;
-    // Destino = ultimo movimiento
-    if (i != aux_x) return false;
-    // Come en diagonal
-    if (abs(x - i) != 1) return false;
-    if (abs(y - j) != 1) return false;
+    // Quinta fila
+    if (color == 0 and y != 3) return false;
+    if (color == 1 and y != 4) return false;
+    // Misma fila de destino 
+    if (aux_x != i) return false;
+
     return true;
 }
 
@@ -252,7 +266,7 @@ bool movCaballo(int i, int j, int x, int y) {
 }
 
 // Comprueba si se puede mover el peon a esa casilla
-bool movPeon(const VVP& Tablero, int i, int j, int x, int y, bool captura_al_paso) {
+bool movPeon(const VVP& Tablero, int i, int j, int x, int y, char pieza_prev, int aux_j, int aux_x, int aux_y, bool& captura_al_paso) {
     int color = Tablero[x][y].color;
 
     // No avanzar mas de 2 casillas
@@ -284,11 +298,12 @@ bool movPeon(const VVP& Tablero, int i, int j, int x, int y, bool captura_al_pas
     // Capturar
     if (abs(y - j) == 1 and abs(x - i) == 1) {
         // Captura al paso
+        captura_al_paso = enPassant(i, j, x, y, pieza_prev, aux_j, aux_x, aux_y, color);
         if (captura_al_paso) return true;
         // Captura
         if (Tablero[i][j].nombre == ' ') return false;
     }
-    
+
     return true;
 }
 
@@ -316,13 +331,14 @@ bool movRey(const VVP& Tablero, int i, int j, int x, int y) {
     return false;
 }
 
-void moverPieza(VVP& Tablero, int i, int j, int x, int y, bool captura_al_paso, char corona) {
+void moverPieza(VVP& Tablero, int i, int j, int x, int y, char corona) {
     // Captura al paso
-    if (captura_al_paso) {
+    if (Tablero[x][y].nombre == 'P' and x != i and Tablero[i][j].nombre == ' ') {
         if (Tablero[x][y].color == 0) Tablero[i][j + 1] = {' ', -1, false};
         if (Tablero[x][y].color == 1) Tablero[i][j - 1] = {' ', -1, false};
     }
 
+    // Enroque
     else if (Tablero[x][y].nombre == 'K' and abs(x - i) == 2) {
         // Enroque corto
         if (i == 6) {
@@ -347,8 +363,8 @@ void moverPieza(VVP& Tablero, int i, int j, int x, int y, bool captura_al_paso, 
 }
 
 // Recrea el movimiento y comprueba que el rey no este en jaque
-bool jaque(VVP Tablero, int i, int j, int x, int y, bool captura_al_paso, int turno, char corona) {
-    moverPieza(Tablero, i, j, x, y, captura_al_paso, corona);
+bool jaque(VVP Tablero, int i, int j, int x, int y, int turno) {
+    moverPieza(Tablero, i, j, x, y, 'Q');
     for (int k = 0; k < 8; ++k) {
         for (int l = 0; l < 8; ++l) {
             if (Tablero[k][l].nombre == 'K' and Tablero[k][l].color == turno) {
@@ -360,62 +376,61 @@ bool jaque(VVP Tablero, int i, int j, int x, int y, bool captura_al_paso, int tu
     return false;
 }
 
-bool posicionValida(const VVP& Tablero, int i, int j, int x, int y, bool captura_al_paso, int turno, char corona) {
-    // Fuera de los limites
-    if (not entreLimites(i, j)) return false;
-
-    // Compueba que en la posicion inicial haya una pieza
-    if (Tablero[x][y].nombre == ' ') return false;
-
-    // No comer mismo color
-    if (Tablero[x][y].color == Tablero[i][j].color) return false;
-
-    // No mover fuera de turno
-    if (Tablero[x][y].color != turno) return false;
-
-    // Peon
-    if (Tablero[x][y].nombre == 'P' and not movPeon(Tablero, i, j, x, y, captura_al_paso)) return false;
-    
-    // Caballo
-    else if (Tablero[x][y].nombre == 'N' and not movCaballo(i, j, x, y)) return false;
-
-    // Alfil
-    else if (Tablero[x][y].nombre == 'B' and  not movAlfil(Tablero, i, j, x, y)) return false;
-
-    // Torre
-    else if (Tablero[x][y].nombre == 'R' and not movTorre(Tablero, i, j, x, y)) return false;
-
-    // Reina
-    else if (Tablero[x][y].nombre == 'Q' and not movAlfil(Tablero, i, j, x, y) and not movTorre(Tablero, i, j, x, y)) return false;
-
-    // Rey
-    else if (Tablero[x][y].nombre == 'K' and not movRey(Tablero, i, j, x, y)) return false;
-
-    // No ignorar jaque
-    if (jaque(Tablero, i, j, x, y, captura_al_paso, turno, corona)) return false;
-
-    return true;
+void mostrarPosicionesValidas(const VVB& PV, const VVP& Tablero, int startx, int starty) {
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            if (PV[j][i]) {
+                attron(COLOR_PAIR(BLACK_GREEN_PAIR));
+                if (Tablero[j][i].nombre == ' ') mvprintw(starty + i*2, startx + j*3 + 1, " ");
+                else mvprintw(starty + i*2, startx + j*3 + 1, "%c", Tablero[j][i].nombre); 
+                mvprintw(starty + i*2, startx + j*3 + 2, " ");
+                attroff(COLOR_PAIR(BLACK_GREEN_PAIR));
+                refresh();
+            }
+        }
+    }
 }
 
-bool existeMovimientoValido(const VVP& Tablero, int turno, char pieza_prev, int aux_j, int aux_x, int aux_y) {
+VVB calcularPosicionesValidas(const VVP& Tablero, int x, int y, char pieza_prev, int aux_j, int aux_x, int aux_y, int turno) {
+    VVB PV(8, VB(8, false));
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            bool valida = false;
+            bool captura_al_paso = false;
+            if (Tablero[x][y].nombre == 'P' and movPeon(Tablero, i, j, x, y, pieza_prev, aux_j, aux_x, aux_y, captura_al_paso)) valida = true;
+            if (Tablero[x][y].nombre == 'N' and movCaballo(i, j, x, y)) valida = true;
+            if (Tablero[x][y].nombre == 'B' and movAlfil(Tablero, i, j, x, y)) valida = true;
+            if (Tablero[x][y].nombre == 'R' and movTorre(Tablero, i, j, x, y)) valida = true;
+            if (Tablero[x][y].nombre == 'Q' and (movAlfil(Tablero, i, j, x, y) or movTorre(Tablero, i, j, x, y))) valida = true;
+            if (Tablero[x][y].nombre == 'K' and movRey(Tablero, i, j, x, y)) valida = true;
+            if (Tablero[i][j].color == Tablero[x][y].color) valida = false;
+            if (valida and not jaque(Tablero, i, j, x, y, turno)) PV[i][j] = true;
+        }
+    }
+    return PV;
+}
+
+bool existeMovimientoValido(const VVP& Tablero, char pieza_prev, int aux_j, int aux_x, int aux_y, int turno) {
     // Encuentra una pieza aliada
     for (int x = 0; x < 8; ++x) {
         for (int y = 0; y < 8; ++y) {
             if (Tablero[x][y].color == turno) {
-                // Encuentra un movimento valido para la pieza
+                bool captura_al_paso = false;
+                char corona = 'Q';
+                VVB PV = calcularPosicionesValidas(Tablero, x, y, pieza_prev, aux_j, aux_x, aux_y, turno);
                 for (int i = 0; i < 8; ++i) {
                     for (int j = 0; j < 8; ++j) {
-                        bool captura_al_paso = enPassant(i, j, x, y, pieza_prev, aux_j, aux_x, aux_y);
-                        if (posicionValida(Tablero, i, j, x, y, captura_al_paso, turno, ' ')) return true;
+                        if (PV[i][j]) return true;
                     }
                 }
             }
+            
         }
     }
     return false;
 }
 
-bool mate(const VVP& Tablero, int turno, char pieza_prev, int aux_j, int aux_x, int aux_y) {
+bool mate(const VVP& Tablero, char pieza_prev, int aux_j, int aux_x, int aux_y, int turno) {
     // Encuentra el rey
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
@@ -423,7 +438,7 @@ bool mate(const VVP& Tablero, int turno, char pieza_prev, int aux_j, int aux_x, 
                 // Comprueba si el rey esta en jaque
                 if (atacado(Tablero, i, j, turno)) {
                     // Comprueba si existe un movimiento valido para el jugador actual
-                    if (not existeMovimientoValido(Tablero, turno, pieza_prev, aux_j, aux_x, aux_y)) {
+                    if (not existeMovimientoValido(Tablero, pieza_prev, aux_j, aux_x, aux_y, turno)) {
                         return true;
                     }
                 }
@@ -434,30 +449,15 @@ bool mate(const VVP& Tablero, int turno, char pieza_prev, int aux_j, int aux_x, 
     return false;
 }
 
-char coronarPeones(int startx, int starty) {
-    // Coronar peones
-    char corona;
-    imprimirMensaje("Introduce la pieza a la que quieres coronar: (Q, R, B, N): ", startx, starty);
-    cin >> corona;
-    while (corona != 'Q' and corona != 'R' and corona != 'B' and corona != 'N') {
-        imprimirMensaje("No puedes coronar el peon a esa pieza", startx, starty);
-        cin >> corona;
-    }
-    return corona;
-}
-
 void obtenerPosicionRaton(int& i, int& j, int startx, int starty) {
     MEVENT event;
     int input;
-
     while (true) {
         input = getch();
-
         if (input == KEY_MOUSE) {
             if (getmouse(&event) == OK) {
                 int mouse_y = event.y;
                 int mouse_x = event.x;
-
                 // Verificar si el clic está dentro del tablero
                 if (mouse_y >= starty and mouse_y < starty + 16 and mouse_x >= startx and mouse_x < startx + 24) {
                     i = (mouse_x - startx)/3;
@@ -483,7 +483,7 @@ int main() {
     int startx = (width - 8 * 3) / 2;
 
     VVP Tablero = crearTablero();
-    imprimirTablero(Tablero);
+    imprimirTablero(Tablero, startx, starty);
 
     int turno = 0;  // 0 = blancas, 1 = negras
 
@@ -492,44 +492,50 @@ int main() {
     auxpos_yi = auxpos_y = auxpos_xi = 0;
     char pieza_prev = ' ';
 
-    char cpos_xi, cpos_yi, cpos_x, cpos_y;
     while (true) {
+        // Obtiene las coordenadas iniciales
         int pos_x, pos_y, pos_xi, pos_yi;
         obtenerPosicionRaton(pos_xi, pos_yi, startx, starty);
-        obtenerPosicionRaton(pos_x, pos_y, startx, starty);
 
-        char corona = ' ';
-        bool captura_al_paso = false;
+        // Comprueba si hay una pieza que se pueda mover en esa posicion 
+        if (Tablero[pos_xi][pos_yi].color == turno) {
+            char corona = ' ';
 
-        if (entreLimites(pos_x, pos_y)) {
-            // Introducir pieza a la que se quiere coronar
-            if ((pos_y == 0 or pos_y == 7) and Tablero[pos_xi][pos_yi].nombre == 'P' and 
-            movPeon(Tablero, pos_x, pos_y, pos_xi, pos_yi, false)) corona = coronarPeones(startx, starty);
+            // Muestra las posiciones validas de la pieza seleccionada
+            VVB PV = calcularPosicionesValidas(Tablero, pos_xi, pos_yi, pieza_prev, auxpos_y, auxpos_xi, auxpos_yi, turno);
+            mostrarPosicionesValidas(PV, Tablero, startx, starty);
 
-            // Comprueba si hay captura al paso
-            if (enPassant(pos_x, pos_y, pos_xi, pos_yi, pieza_prev, auxpos_y, auxpos_xi, auxpos_yi)) captura_al_paso = true;
-        }
-        if (posicionValida(Tablero, pos_x, pos_y, pos_xi, pos_yi, captura_al_paso, turno, corona)) {
-            moverPieza(Tablero, pos_x, pos_y, pos_xi, pos_yi, captura_al_paso, corona);
-            imprimirTablero(Tablero);
+            // Obtiene las coordenadas finales
+            obtenerPosicionRaton(pos_x, pos_y, startx, starty);
 
-            // Cambia el turno
-            turno = 1 - turno;
+            // Comprueba si se quiere coronar un peon
+            if (((pos_y == 0 and Tablero[pos_x][pos_y].color == 0) or (pos_y == 7 and Tablero[pos_x][pos_y].color == 1)) and 
+            Tablero[pos_xi][pos_yi].nombre == 'P') corona = coronarPeones();
 
-            // Actualiza la jugada anterior (para la captura al paso)
-            pieza_prev = Tablero[pos_x][pos_y].nombre;
-            auxpos_yi = pos_yi;
-            auxpos_y = pos_y;
-            auxpos_xi = pos_xi;
+            // Comprueba si es una posicion valida
+            if (PV[pos_x][pos_y]) {
+                moverPieza(Tablero, pos_x, pos_y, pos_xi, pos_yi, corona);
+                imprimirTablero(Tablero, startx, starty);
 
-            // Comprueba si hay mate
-            if (mate(Tablero, turno, pieza_prev, auxpos_y, auxpos_xi, auxpos_yi)) {
-                imprimirMensaje("¡Jaque mate! ", startx, starty);
-                if (turno == 0) imprimirMensaje("Las negras ganan.", startx, starty);
-                else imprimirMensaje("Las blancas ganan.", startx, starty);
-                endwin(); // Finalizar NCurses
+                // Cambia el turno
+                turno = 1 - turno;
+
+                // Actualiza la jugada anterior (para la captura al paso)
+                pieza_prev = Tablero[pos_x][pos_y].nombre;
+                auxpos_yi = pos_yi;
+                auxpos_y = pos_y;
+                auxpos_xi = pos_xi;
+
+                // Comprueba si hay mate
+                if (mate(Tablero, pieza_prev, auxpos_y, auxpos_xi, auxpos_yi, turno)) {
+                    imprimirMensaje("¡Jaque mate! ", 2000);
+                    if (turno == 0) imprimirMensaje("Las negras ganan.", 1000);
+                    else imprimirMensaje("Las blancas ganan.", 1000);
+                    endwin(); // Finalizar NCurses
+                    break;
+                }
             }
+            else imprimirTablero(Tablero, startx, starty);
         }
-        else imprimirMensaje("Posicion invalida", startx, starty);
     }
 }
