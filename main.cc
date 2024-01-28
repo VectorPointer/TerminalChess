@@ -127,13 +127,10 @@ void imprimirMensaje(string s, int tiempo) {
 
 char coronarPeones() {
     // Coronar peones
-    char corona;
     imprimirMensaje("Introduce la pieza a la que quieres coronar (Q, R, B, N): ", 4000);
+    char corona;
     cin >> corona;
-    while (corona != 'Q' and corona != 'R' and corona != 'B' and corona != 'N') {
-        imprimirMensaje("No puedes coronar el peon a esa pieza", 1000);
-        cin >> corona;
-    }
+    while (corona != 'Q' and corona != 'R' and corona != 'B' and corona != 'N') cin >> corona;
     return corona;
 }
 
@@ -509,7 +506,7 @@ int main() {
             obtenerPosicionRaton(pos_x, pos_y, startx, starty);
 
             // Comprueba si se quiere coronar un peon
-            if (((pos_y == 0 and Tablero[pos_x][pos_y].color == 0) or (pos_y == 7 and Tablero[pos_x][pos_y].color == 1)) and 
+            if (((pos_y == 0 and Tablero[pos_xi][pos_yi].color == 0) or (pos_y == 7 and Tablero[pos_xi][pos_yi].color == 1)) and 
             Tablero[pos_xi][pos_yi].nombre == 'P') corona = coronarPeones();
 
             // Comprueba si es una posicion valida
