@@ -8,6 +8,7 @@ using namespace std;
 #define BLUE_BLACK_PAIR 2
 #define RED_WHITE_PAIR 3
 #define RED_BLACK_PAIR 4
+#define WHITE_BLACK_PAIR 5
 
 struct Pieza {
     char nombre;
@@ -67,6 +68,7 @@ void initColors() {
     init_pair(BLUE_BLACK_PAIR, COLOR_BLUE, COLOR_BLACK);
     init_pair(RED_WHITE_PAIR, COLOR_RED, COLOR_WHITE);
     init_pair(RED_BLACK_PAIR, COLOR_RED, COLOR_BLACK);
+    init_pair(WHITE_BLACK_PAIR, COLOR_WHITE, COLOR_BLACK);
 }
 
 void imprimirTablero(const VVP& Tablero) {
@@ -104,6 +106,23 @@ void imprimirTablero(const VVP& Tablero) {
     refresh(); // Actualizar la pantalla    
 }
 
+// Muestra un mensaje por 2 segundos y despues lo elimina
+void imprimirMensaje(string s, int startx, int starty) {
+    // Mostrar el mensaje
+    attron(COLOR_PAIR(WHITE_BLACK_PAIR));
+    mvprintw(starty + 17, startx, "%s", s.c_str());
+    attroff(COLOR_PAIR(WHITE_BLACK_PAIR));
+    refresh();
+
+    // Esperar a que el usuario presione una tecla o esperar 2 segundos
+    timeout(2000);  
+    getch();  
+    timeout(-1);  // Desactivar el tiempo de espera
+
+    // Borrar el mensaje
+    mvprintw(starty + 17, startx, string(s.size(), ' ').c_str());  
+    refresh(); 
+}
 
 // Comprueba si hay captura al paso
 bool enPassant(int i, int j, int x, int y, char pieza_prev, int aux_j, int aux_x, int aux_y) {
@@ -415,22 +434,53 @@ bool mate(const VVP& Tablero, int turno, char pieza_prev, int aux_j, int aux_x, 
     return false;
 }
 
-char coronarPeones() {
+char coronarPeones(int startx, int starty) {
     // Coronar peones
     char corona;
-    cout << "Introduce la pieza a la que quieres coronar: (Q, R, B, N): ";
+    imprimirMensaje("Introduce la pieza a la que quieres coronar: (Q, R, B, N): ", startx, starty);
     cin >> corona;
     while (corona != 'Q' and corona != 'R' and corona != 'B' and corona != 'N') {
-        cout << "No puedes coronar el peon a esa pieza" << endl;
+        imprimirMensaje("No puedes coronar el peon a esa pieza", startx, starty);
         cin >> corona;
     }
     return corona;
 }
 
+void obtenerPosicionRaton(int& i, int& j, int startx, int starty) {
+    MEVENT event;
+    int input;
+
+    while (true) {
+        input = getch();
+
+        if (input == KEY_MOUSE) {
+            if (getmouse(&event) == OK) {
+                int mouse_y = event.y;
+                int mouse_x = event.x;
+
+                // Verificar si el clic está dentro del tablero
+                if (mouse_y >= starty and mouse_y < starty + 16 and mouse_x >= startx and mouse_x < startx + 24) {
+                    i = (mouse_x - startx)/3;
+                    j = (mouse_y - starty)/2;
+                    break;
+                }
+            }
+        }
+    }
+}
 
 int main() {
     initscr(); // Inicializar la pantalla de NCurses
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
     initColors();
+
+    int height, width;
+    getmaxyx(stdscr, height, width);
+    int starty = (height - 8 * 2) / 2;
+    int startx = (width - 8 * 3) / 2;
 
     VVP Tablero = crearTablero();
     imprimirTablero(Tablero);
@@ -443,19 +493,18 @@ int main() {
     char pieza_prev = ' ';
 
     char cpos_xi, cpos_yi, cpos_x, cpos_y;
-    while (cin >> cpos_xi >> cpos_yi >> cpos_x >> cpos_y) {
-        // Convertir caracter a entero
-        int pos_xi = int(cpos_xi - 'a');
-        int pos_x = int(cpos_x - 'a');
-        int pos_yi = 8 - int(cpos_yi - '0');
-        int pos_y = 8 - int(cpos_y - '0');
+    while (true) {
+        int pos_x, pos_y, pos_xi, pos_yi;
+        obtenerPosicionRaton(pos_xi, pos_yi, startx, starty);
+        obtenerPosicionRaton(pos_x, pos_y, startx, starty);
 
         char corona = ' ';
         bool captura_al_paso = false;
+
         if (entreLimites(pos_x, pos_y)) {
             // Introducir pieza a la que se quiere coronar
-            if ((pos_y == 0 or pos_y == 7) and 
-            Tablero[pos_xi][pos_yi].nombre == 'P' and movPeon(Tablero, pos_x, pos_y, pos_xi, pos_yi, false)) corona = coronarPeones();
+            if ((pos_y == 0 or pos_y == 7) and Tablero[pos_xi][pos_yi].nombre == 'P' and 
+            movPeon(Tablero, pos_x, pos_y, pos_xi, pos_yi, false)) corona = coronarPeones(startx, starty);
 
             // Comprueba si hay captura al paso
             if (enPassant(pos_x, pos_y, pos_xi, pos_yi, pieza_prev, auxpos_y, auxpos_xi, auxpos_yi)) captura_al_paso = true;
@@ -475,12 +524,12 @@ int main() {
 
             // Comprueba si hay mate
             if (mate(Tablero, turno, pieza_prev, auxpos_y, auxpos_xi, auxpos_yi)) {
-                cout << "¡Jaque mate! ";
-                if (turno == 0) cout << "Las negras ganan." << endl;
-                else cout << "Las blancas ganan." << endl;
+                imprimirMensaje("¡Jaque mate! ", startx, starty);
+                if (turno == 0) imprimirMensaje("Las negras ganan.", startx, starty);
+                else imprimirMensaje("Las blancas ganan.", startx, starty);
                 endwin(); // Finalizar NCurses
             }
         }
-        else cout << "Posicion invalida" << endl;
+        else imprimirMensaje("Posicion invalida", startx, starty);
     }
 }
