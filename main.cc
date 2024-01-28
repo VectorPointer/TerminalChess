@@ -489,10 +489,16 @@ int main() {
     auxpos_yi = auxpos_y = auxpos_xi = 0;
     char pieza_prev = ' ';
 
+    int pos_x, pos_y, pos_xi, pos_yi;
+    pos_x = pos_y = pos_xi = pos_yi = 3; // posicion valida donde no hay ninguna pieza
     while (true) {
+        // Encabalgamiento de posiciones
+        if (Tablero[pos_x][pos_y].color == turno) {
+            pos_xi = pos_x;
+            pos_yi = pos_y;
+        }
         // Obtiene las coordenadas iniciales
-        int pos_x, pos_y, pos_xi, pos_yi;
-        obtenerPosicionRaton(pos_xi, pos_yi, startx, starty);
+        else obtenerPosicionRaton(pos_xi, pos_yi, startx, starty);
 
         // Comprueba si hay una pieza que se pueda mover en esa posicion 
         if (Tablero[pos_xi][pos_yi].color == turno) {
