@@ -164,7 +164,7 @@ bool leerEventoRaton(int& i, int& j, bool& isRelease, bool& isMotion) {
     if (x < 0 || y < 0) return false;
     // i = fila (row), j = columna (col) según uso interno
     i = y / CELDA_H;
-    j = (x + 1) / CELDA_W;
+    j = x / CELDA_W;
     if (i < 0 || i >= BOARD_SIZE || j < 0 || j >= BOARD_SIZE) return false;
     return true;
 }
@@ -187,7 +187,6 @@ void deshabilitarTrackingRaton() {
 
 // Devuelve la celda donde se presiona por primera vez (mouse down)
 void obtenerOrigenRaton(int& i, int& j) {
-    imprimirMensaje("Selecciona una pieza con el ratón", MSG_SHORT, true);
     habilitarTrackingRaton();
     while (true) {
         bool release = false, motion = false;
@@ -214,7 +213,6 @@ void obtenerDestinoTrasOrigen(int i0, int j0, int& i1, int& j1) {
     }
     // Si release en la misma casilla, pide segundo clic
     if (last_i == i0 && last_j == j0) {
-    imprimirMensaje("Ahora selecciona la casilla de destino", MSG_SHORT, true);
         bool pressed2 = false;
         while (true) {
             bool release = false, motion = false;
@@ -770,7 +768,6 @@ int main() {
             // Si clicas otra pieza tuya, re-selecciona origen y repite
             if (entreLimites(i1, j1) && Tablero[i1][j1].color == turno) {
                 i0 = i1; j0 = j1;
-                imprimirMensaje(string("Pieza re-seleccionada: ") + toAlg(i0, j0), MSG_SHORT);
                 // Limpiar resaltado anterior
                 imprimirTablero(Tablero);
                 // Rehabilita tracking para volver a pedir destino
@@ -780,7 +777,6 @@ int main() {
             }
             // Si el destino no es válido, permite reintentar destino con mismo origen
             if (!entreLimites(i1, j1) || !PV[i1][j1]) {
-                imprimirMensaje("Movimiento no válido. Intenta otra casilla.", MSG_MEDIUM);
                 // Limpiar resaltado de PV
                 imprimirTablero(Tablero);
                 habilitarTrackingRaton();
@@ -810,7 +806,6 @@ int main() {
         auxpos_y = j_dest;
 
         moverPieza(Tablero, i_dest, j_dest, i0, j0, corona);
-        imprimirMensaje(string("Movido ") + toAlg(i0, j0) + " → " + toAlg(i_dest, j_dest), MSG_MEDIUM);
         imprimirTablero(Tablero);
 
         // Comprobar mate
