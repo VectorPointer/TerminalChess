@@ -38,3 +38,20 @@ Compila el programa con:
 
 ```bash
 g++ -std=c++17 -pthread -o ajedrez main.cc
+```
+
+## ⌨️ Controles
+
+- 🖱️ Clic izquierdo → seleccionar pieza y casilla de destino.
+
+- 🖱️ Arrastrar y soltar → mover pieza directamente.
+
+- ♟️ Coronación de peón → al llegar a la última fila, introduce la letra de la pieza:
+
+  - `Q` → Reina
+
+  - `R` → Torre
+
+  - `B` → Alfil
+
+  - `N` → Caballo
